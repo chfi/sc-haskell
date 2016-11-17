@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 
-module Player where
+module Curve where
 
 
 import           Data.List.NonEmpty (NonEmpty ((:|)), cons)
@@ -17,66 +17,68 @@ import Control.Wire (HasTime, Wire, (.))
 import FRP.Netwire
 
 
+import Graphics (Color, rgbColor)
 import Input
 
   -- TODO should be configurable somewhere
-playerRadius = 5
+curveRadius = 5
 
 
 type Head = V2 Double
 type Tail = NonEmpty (V2 Double)
 
 
-data Player = Player { pHead  :: Head
-                     , pTail  :: Tail
-                     , pDist  :: Double
-                     , pAlive :: Bool
+data Curve = Curve { cHead  :: Head
+                     , cTail  :: Tail
+                     , cDist  :: Double
+                     , cAlive :: Bool
+                     , cColor :: Color
                      }
 
 
 
-playerExtendTail :: Player -> Player
-playerExtendTail p@Player{..} =
-  let d = distance (NE.head pTail) pHead
-      pT' = if d > pDist then pHead `cons` pTail else pTail
-  in p { pTail = pT' }
+curveExtendTail :: Curve -> Curve
+curveExtendTail p@Curve{..} =
+  let d = distance (NE.head cTail) cHead
+      pT' = if d > cDist then cHead `cons` cTail else cTail
+  in p { cTail = pT' }
 
 
-playerSafeTail :: Player -> [V2 Double]
-playerSafeTail Player{..} =
-  NE.dropWhile (\th -> distance pHead th < playerRadius*2) pTail
+curveSafeTail :: Curve -> [V2 Double]
+curveSafeTail Curve{..} =
+  NE.dropWhile (\th -> distance cHead th < curveRadius*2) cTail
 
 
-playerCheckCollision :: Player -> [V2 Double] -> Bool
-playerCheckCollision Player{..} p2t =
-  any (\th -> distance pHead th < playerRadius*2) p2t
+curveCheckCollision :: Curve -> [V2 Double] -> Bool
+curveCheckCollision Curve{..} p2t =
+  any (\th -> distance cHead th < curveRadius*2) p2t
 
 
-selfColWire :: HasTime t s => Wire s () IO Player Bool
+selfColWire :: HasTime t s => Wire s () IO Curve Bool
 selfColWire = proc p -> do
-  let tl = playerSafeTail p
-      val = playerCheckCollision p tl
+  let tl = curveSafeTail p
+      val = curveCheckCollision p tl
   returnA -< val
 
 
-plWire :: HasTime t s => Player -> Wire s () IO PlayerInput Player
+plWire :: HasTime t s => Curve -> Wire s () IO CurveInput Curve
 plWire p = proc keys -> do
-  pH <- plPosWire (pHead p) -< keys
-  rec pT <- delay (pTail p) -< pT'
-      let p' = playerExtendTail p { pHead = pH, pTail = pT }
-          pT' = pTail p'
+  pH <- plPosWire (cHead p) -< keys
+  rec pT <- delay (cTail p) -< pT'
+      let p' = curveExtendTail p { cHead = pH, cTail = pT }
+          pT' = cTail p'
   alive <- (arr not) . selfColWire -< p'
-  returnA -< p' { pAlive = alive }
+  returnA -< p' { cAlive = alive }
 
 
 
-plPosWire :: HasTime t s => (V2 Double) -> Wire s () IO PlayerInput (V2 Double)
+plPosWire :: HasTime t s => (V2 Double) -> Wire s () IO CurveInput (V2 Double)
 plPosWire init = proc keys -> do
   -- pos <- integral init . (angvel >>> polarVel) -< keys
   pos <- integral init . (angWire >>> polarVel) -< keys
   returnA -< pos
 
-angWire :: HasTime t s => Double -> Wire s () IO PlayerInput Double
+angWire :: HasTime t s => Double -> Wire s () IO CurveInput Double
 angWire da = proc keys -> do
   -- pretty ugly --- need to create constant arrows to feed the speed, since it's a double.
   va <-  (arr (const (-da))) . when (isDown KeyLeft)
@@ -87,7 +89,7 @@ angWire da = proc keys -> do
   integral 0 -< va
 
 
--- angvel :: HasTime t s => Wire s () IO PlayerInput Double
+-- angvel :: HasTime t s => Wire s () IO CurveInput Double
 -- angvel = proc keys -> do
 --   va <-  (-3) . when (isDown KeyLeft)
 --      <|>   3  . when (isDown KeyRight)
