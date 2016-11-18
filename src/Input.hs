@@ -1,11 +1,13 @@
 module Input
   ( inputWire
+  , InputMap
   , PlayerInput
   , PlayerKey(..)
   , isDown
-  , player1InputMap
-  , player2InputMap
-  , player3InputMap
+  , adInputMap
+  , fgInputMap
+  , arrowsInputMap
+  , parseEvents
   ) where
 
 
@@ -42,37 +44,43 @@ data PlayerKey = KeyLeft | KeyRight deriving (Eq, Ord, Show)
 type InputMap = Map Key.Scancode PlayerKey
 
 
-player1InputMap :: InputMap
-player1InputMap =
+adInputMap :: InputMap
+adInputMap =
   Map.fromList [ (Key.ScancodeA, KeyLeft)
                , (Key.ScancodeD, KeyRight)
                ]
 
 
-player2InputMap :: InputMap
-player2InputMap =
+arrowsInputMap :: InputMap
+arrowsInputMap =
   Map.fromList [ (Key.ScancodeLeft, KeyLeft)
                , (Key.ScancodeRight, KeyRight)
                ]
 
 
-player3InputMap :: InputMap
-player3InputMap =
-  Map.fromList [ (Key.ScancodeJ, KeyLeft)
-               , (Key.ScancodeL, KeyRight)
+fgInputMap :: InputMap
+fgInputMap =
+  Map.fromList [ (Key.ScancodeF, KeyLeft)
+               , (Key.ScancodeG, KeyRight)
                ]
 
+
+
+-- getEvents :: IO [SDL.Event]
+-- getEvents = SDL.pollEventskj
 
 -- Wire that fetches SDL keyboard events & outputs a set containing all pressed keys
 -- for a given inputmap
 inputWire :: InputMap -> Wire s e IO PlayerInput PlayerInput
 inputWire imap = mkGen_ $ fmap Right . (getEvents imap)
 
-isDown :: PlayerInput -> PlayerKey -> Bool
-isDown = flip Set.member
+-- isDown :: PlayerInput -> PlayerKey -> Bool
+-- isDown = flip Set.member
+isDown :: PlayerKey -> PlayerInput -> Bool
+isDown = Set.member
 
-mapInput :: InputMap -> SDL.Keysym -> PlayerKey
-mapInput imap ks = fromJust $ Map.lookup (SDL.keysymScancode ks) imap
+mapInput :: InputMap -> SDL.Keysym -> Maybe PlayerKey
+mapInput imap ks = Map.lookup (SDL.keysymScancode ks) imap
 
 
 -- SDL event helper functions
@@ -82,9 +90,11 @@ parseEvents imap =
     (\ev s ->
        case SDL.eventPayload ev of
          SDL.KeyboardEvent (SDL.KeyboardEventData _ m _ ks) ->
-           case m of
-             SDL.Pressed -> Set.insert (mapInput imap ks) s
-             SDL.Released -> Set.delete (mapInput imap ks) s
+           case mapInput imap ks of
+             Nothing -> s
+             Just ks' -> case m of
+              SDL.Pressed -> Set.insert ks' s
+              SDL.Released -> Set.delete ks' s
          _ -> s)
 
 
