@@ -10,10 +10,6 @@ module Input
   , parseEvents
   ) where
 
-
-
-import Data.Maybe (fromJust)
-
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 
@@ -30,19 +26,7 @@ type PlayerInput = Set PlayerKey
 
 data PlayerKey = KeyLeft | KeyRight deriving (Eq, Ord, Show)
 
-
--- newtype InputMap =
---   InputMap { leftKey :: SDL.Keysym
---            , rightKey :: SDL.Keysym
---            }
--- createInputMap :: SDL.Keysym
---                -> SDL.Keysym
---                ->
-
--- type InputMap = Map SDL.Keysym PlayerKey
-
 type InputMap = Map Key.Scancode PlayerKey
-
 
 adInputMap :: InputMap
 adInputMap =

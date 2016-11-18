@@ -4,23 +4,21 @@ module Graphics.Draw
   , drawCurve
   ) where
 
-import Linear (V2(..), V4(..))
+import Linear (V2(..))
 import Linear.Affine (Point(..))
-import Linear.Metric (distance)
 
-import SDL (($=))
 import qualified SDL as SDL
-
 
 import Curve (Curve(..), curveToPoints)
 import Graphics.Texture (Color, createColoredCircleTexture)
+
 
 drawCircle :: (RealFrac a) => SDL.Renderer -> Color -> V2 a -> IO ()
 drawCircle r c p = do
   let p' = fmap round p
   t <- createColoredCircleTexture r c
-  let c = Just $ SDL.Rectangle (P $ p') (V2 10 10) -- TODO magic numbers...
-  SDL.copy r t Nothing c
+  let rect = Just $ SDL.Rectangle (P $ p') (V2 10 10) -- TODO magic numbers...
+  SDL.copy r t Nothing rect
 
 
 drawCircles :: (RealFrac a) => SDL.Renderer -> Color -> [V2 a] -> IO ()

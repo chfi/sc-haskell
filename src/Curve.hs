@@ -3,38 +3,31 @@
 
 
 module Curve
-  ( Curve(..)
-  , createCurve
-  , curveWire
-  , drawCurve
-  , drawCurve'
-  , killCurve
-  ) where
+  (Curve(..)
+  ,createCurve
+  ,curveWire
+  ,killCurve
+  ,curveToPoints)
+  where
 
-
-import Debug.Trace (trace)
 
 import           Data.List.NonEmpty (NonEmpty ((:|)), cons)
 import qualified Data.List.NonEmpty as NE
-import Linear.Affine (Point(..))
 import           Linear.Metric      (distance)
 import           Linear.V2          (V2(..), angle)
 import           Prelude                  hiding (id, (.))
-import qualified Data.Set as Set
 
-
-import Control.Wire (HasTime, Wire, (.), mkGen_, mkConst)
+import Control.Wire (HasTime, Wire, (.))
 import FRP.Netwire
 
-
-import qualified SDL as SDL
-
-
-import Graphics (Color, rgbColor, drawCircleAt, drawWhiteCircleAt, createColoredCircleTexture)
+import Graphics.Texture (Color)
 import Input
 
   -- TODO should be configurable somewhere
+curveRadius :: Double
 curveRadius = 5
+
+curveSpeed :: Double
 curveSpeed = 70
 
 
@@ -49,17 +42,19 @@ data Curve = Curve { cHead  :: Head
                    , cColor :: Color
                    }
 
--- type CurveWire = Wire s e IO PlayerInput Curve
+
+curveToPoints :: Curve -> [V2 Double]
+curveToPoints Curve{..} = cHead : NE.toList cTail
+
 
 createCurve :: Head -> Color -> Curve
-createCurve head color =
-  Curve { cHead = head
-        , cTail = head :| []
+createCurve pos color =
+  Curve { cHead = pos
+        , cTail = pos :| []
         , cDist = curveRadius / 2
         , cAlive = True
         , cColor = color
         }
-
 
 
 curveExtendTail :: Curve -> Curve
@@ -71,12 +66,10 @@ curveExtendTail p@Curve{..} =
 
 curveSafeTail :: Curve -> [V2 Double]
 curveSafeTail Curve{..} =
-  NE.dropWhile (\th -> distance cHead th < curveRadius*2) cTail
-
-
-curveCheckCollision :: Curve -> [V2 Double] -> Bool
-curveCheckCollision Curve{..} p2t =
-  any (\th -> distance cHead th < curveRadius*2) p2t
+    NE.dropWhile
+        (\th ->
+              distance cHead th < curveRadius * 2)
+        cTail
 
 
 headToCurveCheckCollision :: Head -> Curve -> Bool
@@ -84,17 +77,9 @@ headToCurveCheckCollision h c@Curve{..} =
   any (\th -> distance h th < curveRadius * 2) $ curveSafeTail c
 
 
-selfColWire :: HasTime t s => Wire s () IO Curve Bool
-selfColWire = proc p -> do
-  let tl = curveSafeTail p
-      val = curveCheckCollision p tl
-  returnA -< val
-
-
 collideAgainstMany :: Curve -> [Curve] -> Bool
 collideAgainstMany c cs =
   any (\c' -> headToCurveCheckCollision (cHead c) c') cs
-
 
 
 killCurve :: Curve -> [Curve] -> Curve
@@ -122,7 +107,7 @@ curveWire c initAng = proc (curve, keys) -> do
   -- a cartesian normalized vector and then multiply by curveSpeed
   -- to get movement vector
 velWire :: HasTime t s =>  Double -> Wire s () IO PlayerInput (V2 Double)
-velWire initAng = angWire initAng >>> arr angle >>> arr (* curveSpeed)
+velWire initAng = angWire initAng >>> arr angle >>> arr (* pure curveSpeed)
 
 
 angWire :: HasTime t s => Double -> Wire s () IO PlayerInput Double
@@ -132,29 +117,3 @@ angWire initAng = proc keys -> do
      <|> 0
           -< keys
   integral initAng -< va
-
-
-
-  -- faster but uglier code
-drawCurve :: SDL.Renderer -> Curve -> IO ()
-drawCurve r Curve{..} = do
-  t <- createColoredCircleTexture r cColor
-
-  let getRect v = Just $ SDL.Rectangle (P $ fmap round v) (V2 10 10)
-      draw x = SDL.copy r t Nothing x
-  draw (getRect cHead)
-  sequence_ $ fmap (draw . getRect) cTail
-
--- should probably move Color into a separate module,
--- or this into a separate Rendering module,
--- either way it shouldn't be in Curve
-drawCurve' :: SDL.Renderer -> Curve -> IO ()
-drawCurve' r Curve{..} = do
-  let draw x = drawWhiteCircleAt r x
-  draw cHead
-  sequence_ $ fmap draw cTail
-  -- drawWhiteCircleAt r cHead
-  -- sequence_ $ fmap (drawWhiteCircleAt r ) cTail
-  -- mapM_ (drawWhiteCircleAt r ) cTail
-  -- drawCircleAt r cColor cHead
-  -- mapM_ (drawCircleAt r cColor) cTail
